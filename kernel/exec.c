@@ -93,7 +93,36 @@ exec(char *path, char **argv)
 			last = s+1;
 	safestrcpy(curproc->name, last, sizeof(curproc->name));
 
-	// Commit to the user image.
+	uint boundary =(void*)0x40000000;
+
+	for(int i = 0; i < 10; i++){
+        if(curproc->array[i].size != 0){
+			boundary = PGROUNDDOWN(boundary);
+            pte_t *pte = walkpgdir1(curproc->parent_pgdir, (void*)curproc->array[i].addr, 0);
+            if(pte == 0 || !(*pte & PTE_P))
+    			goto bad;
+
+			if (curproc->array[i].size > PGSIZE) {
+            	cprintf("Invalid size for shared memory\n");
+            	goto bad;
+        	}
+
+            uint pa = PTE_ADDR(*pte);
+			uint offset = PTE_FLAGS(curproc->array[i].addr);
+			if(pa == 0 || curproc->array[i].size > PGSIZE){
+            	cprintf("Invalid physical address or size for shared memory\n");
+            	goto bad;
+        	}
+
+            if(mappages1(pgdir, (void*)boundary, PGSIZE, pa, PTE_W | PTE_U) < 0)
+                goto bad;
+
+            curproc->array[i].addr = boundary | offset;
+			boundary += PGSIZE;
+        
+        }
+    }
+
 	oldpgdir = curproc->pgdir;
 	curproc->pgdir = pgdir;
 	curproc->sz = sz;

@@ -30,6 +30,12 @@ struct context {
 	uint ebp;
 	uint eip;
 };
+typedef struct shared {
+    char name[20];
+    void *addr;
+    int size;
+	int pid_parent;
+}shared;
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
@@ -48,6 +54,8 @@ struct proc {
 	struct file *ofile[NOFILE];  // Open files
 	struct inode *cwd;           // Current directory
 	char name[16];               // Process name (debugging)
+	shared array[10];
+	pde_t* parent_pgdir;
 };
 
 // Process memory is laid out contiguously, low addresses first:

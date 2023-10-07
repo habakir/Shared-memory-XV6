@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "stddef.h"
 
 struct {
 	struct spinlock lock;
@@ -196,9 +197,19 @@ fork(void)
 		np->state = UNUSED;
 		return -1;
 	}
+	for(i = 0; i < 10; i++){
+		if(curproc->array[i].size != NULL){
+			strncpy(np->array[i].name, curproc->array[i].name, strlen(curproc->array[i].name));
+            np->array[i].addr = curproc->array[i].addr;
+            np->array[i].size = curproc->array[i].size;
+			//np->array[i].pid_parent = curproc->pid;
+		}
+	}
 	np->sz = curproc->sz;
 	np->parent = curproc;
 	*np->tf = *curproc->tf;
+	np->parent_pgdir = curproc->pgdir;
+	//cprintf("Child parent dir: %x\nParent dir: %x\n", np->parent_pgdir, curproc->pgdir);
 
 	// Clear %eax so that fork returns 0 in the child.
 	np->tf->eax = 0;
@@ -233,6 +244,15 @@ exit(void)
 
 	if(curproc == initproc)
 		panic("init exiting");
+	
+		
+        for(int i = 0; i < 10; i++){
+            if(curproc->array[i].name != NULL && curproc->array[i].addr != NULL){
+			{	freevm(curproc->pgdir);
+                curproc->array[i].size = 0;
+            }
+        }
+    }
 
 	// Close all open files.
 	for(fd = 0; fd < NOFILE; fd++){
@@ -241,7 +261,7 @@ exit(void)
 			curproc->ofile[fd] = 0;
 		}
 	}
-
+	
 	begin_op();
 	iput(curproc->cwd);
 	end_op();
@@ -529,3 +549,60 @@ procdump(void)
 		cprintf("\n");
 	}
 }
+
+/*int
+share_struct(char* name, void* addr, int size)
+{
+    struct proc *curproc = myproc();
+    int i;
+
+    // check arguments
+    if(name == NULL || addr == NULL || size < 0)
+        return -1;
+	for(i = 0; i < 10; i++){
+		if(strncmp(name, curproc->array[i].name, strlen(name)) == 0)
+			return -2;
+	}
+
+    for(i = 0; i < 10; i++)
+    {
+        if(curproc->array[i].size == NULL)
+        {
+			int len = strlen(name);
+			if(len > 20){
+				len = 20;
+			}
+            strncpy(curproc->array[i].name, name, len);
+            curproc->array[i].addr = addr;
+            curproc->array[i].size = size;
+
+            return i;
+        }
+    }
+	if(i == 10)
+		return -3;
+
+    return -1;
+}
+
+int get_struct(char *name, void **addr)
+{
+    struct proc *curproc = myproc();
+    int i;
+
+    // check argument
+    if(name == NULL || addr == NULL)
+        return -1;
+
+    for(i = 0; i < 10; i++)
+    {
+        if(curproc->array[i].addr == addr && strncmp(curproc->array[i].name, name, strlen(name)) == 0)
+        {
+            *addr = curproc->array[i].addr;
+            return 0;
+        }
+    }
+
+    return -2;
+}
+*/
